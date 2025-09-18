@@ -1,0 +1,60 @@
+name: MLeague OCR
+
+# Schedule: Mon, Tue, Thu, Fri from 19:00–22:59 JST (10:00–13:59 UTC)
+on:
+  schedule:
+    - cron: '0-59 10-13 * * 1,2,4,5'  # every minute during match times
+  workflow_dispatch:  # manual trigger for testing
+
+jobs:
+  ocr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg tesseract-ocr imagemagick
+
+      - name: Capture frame from live stream
+        run: |
+          ffmpeg -i "STREAM_URL" -frames:v 1 frame.jpg -y
+
+      - name: Optional stop if match ended
+        run: |
+          text=$(tesseract frame.jpg - -l jpn)
+          if echo "$text" | grep -q "終了"; then
+            echo "Match ended, skipping OCR"
+            exit 0
+          fi
+
+      - name: Crop top-left match info
+        run: |
+          convert frame.jpg -crop 300x100+10+10 match_info.jpg
+          tesseract match_info.jpg match_info_out -l jpn
+
+      - name: Crop top-left match number
+        run: |
+          convert frame.jpg -crop 150x50+10+120 match_number.jpg
+          tesseract match_number.jpg match_number_out -l jpn
+
+      - name: Crop bottom row team/player info
+        run: |
+          convert frame.jpg -crop 800x100+0+900 bottom_info.jpg
+          tesseract bottom_info.jpg bottom_info_out -l jpn
+
+      - name: Display OCR results
+        run: |
+          echo "Match Info:"
+          cat match_info_out.txt
+          echo "Match Number:"
+          cat match_number_out.txt
+          echo "Bottom Info:"
+          cat bottom_info_out.txt
+
+      - name: Commit OCR output to repo
+        uses: EndBug/add-and-commit@v9
+        with:
+          author_name: github-actions
+          author_email: github-actions@github.com
+          message: "OCR update $(date)"
+          add: "*.txt"
