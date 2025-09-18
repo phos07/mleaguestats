@@ -17,7 +17,7 @@ jobs:
 
       - name: Capture frame from live stream
         run: |
-          ffmpeg -i "STREAM_URL" -frames:v 1 frame.jpg -y
+          ffmpeg -i "https://abema.tv/now-on-air/mahjong" -frames:v 1 frame.jpg -y
 
       - name: Optional stop if match ended
         run: |
